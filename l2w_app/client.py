@@ -129,9 +129,9 @@ class Soundboard(object):
         pitch_adjust = math.log(size + log_used) / math.log(log_used)
         pitch = 100.0 - min(max_pitch, pitch_adjust)
         index = math.floor(pitch / 100.0 * (self.top_pitch_idx + 1))
-        fuzz = math.floor(random.random() * 4) - 2
-
+        fuzz = random.randint(-2, 2)
         index += fuzz
+
         # bracket it within reason and turn it into an int
         index = int(round(max(0, min(self.top_pitch_idx, index))))
         return index
