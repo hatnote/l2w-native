@@ -1,7 +1,11 @@
 
 import sys
 import json
+import math
 import time
+import random
+from glob import glob
+from os.path import dirname, abspath, join as pjoin
 
 #install_twisted_rector must be called before importing the reactor
 from kivy.support import install_twisted_reactor
@@ -9,6 +13,7 @@ install_twisted_reactor()
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.uix.label import Label
+from kivy.core.audio import SoundLoader
 from kivy.uix.textinput import TextInput
 from kivy.uix.boxlayout import BoxLayout
 from kivy.graphics import Color, Ellipse
@@ -24,6 +29,10 @@ MIN_SIZE = 3
 SCALE_FACTOR = 5
 START_OPACITY = 1.0
 FADEOUT_SECONDS = 15.0
+START_VOLUME = 0.2
+
+CUR_PATH = dirname(abspath(__file__))
+AUDIO_PATH = CUR_PATH + '/audio/'
 
 
 class L2WProtocol(WebSocketClientProtocol):
@@ -93,16 +102,67 @@ class ChangeItem(object):
                    self.metadata['user'], self.metadata['change_size']))
 
 
+class Soundboard(object):
+    def load(self):
+        self.sound_map = {}
+        self.playback_map = {}
+        for instr in ('swells', 'clav', 'celesta'):
+            sound_fns = []
+            self.sound_map[instr] = []
+            for fn in glob(AUDIO_PATH + instr + '/*.mp3'):
+                sound_fns.append(fn)
+            sound_fns.sort()
+            for fn in sound_fns:
+                sound = SoundLoader.load(fn)
+                sound.volume = START_VOLUME
+                self.sound_map[instr].append(sound)
+            self.playback_map[instr] = [False] * len(self.sound_map[instr])
+        self.top_pitch_idx = len(self.sound_map['celesta']) - 1  # TODO
+
+    def _get_index(self, size):
+        size = abs(size)
+        max_pitch = 100.0
+        log_used = 1.0715307808111486871978099
+        pitch_adjust = math.log(size + log_used) / math.log(log_used)
+        pitch = 100.0 - min(max_pitch, pitch_adjust)
+        index = math.floor(pitch / 100.0 * (self.top_pitch_idx + 1))
+        fuzz = math.floor(random.random() * 4) - 2
+
+        index += fuzz
+        # bracket it within reason and turn it into an int
+        index = int(round(max(0, min(self.top_pitch_idx, index))))
+        print index
+        return index
+
+    def play_change(self, size):
+        try:
+            size = int(size)
+        except:
+            return
+        idx = self._get_index(size)
+        instr = 'celesta'
+        if size < 0:
+            instr = 'clav'
+        try:
+            sound = self.sound_map[instr][idx]
+        except IndexError:
+            print 'index out of range:', idx
+            return
+        if sound.state == 'play':
+            sound.seek(0)
+        sound.play()
+
+
 class L2WApp(App):
     connection = None
 
     def build(self):
         self.changes = []
-        root = self.setup_gui()
+        root = self.init_ui()
         self.connect_to_server()
         return root
 
-    def setup_gui(self):
+    def init_ui(self):
         self.textbox = TextInput(size_hint_y=.1, multiline=False)
         self.label = Label(text='connecting...\n')
         self.layout = BoxLayout(orientation='vertical')
@@ -110,7 +170,8 @@ class L2WApp(App):
         self.layout.add_widget(self.textbox)
 
         Clock.schedule_interval(self.update_ui, 1.0 / 60.0)
-
+        self.soundboard = Soundboard()
+        self.soundboard.load()
         return self.layout
 
     def connect_to_server(self):
@@ -129,6 +190,8 @@ class L2WApp(App):
         change_item = ChangeItem(msg, app=self)
         self.changes.append(change_item)
         self.label.text = str(msg).encode('utf8')
+        if not msg['page_title'] == 'Special:Log/newusers':
+            self.soundboard.play_change(msg['change_size'])
 
     def update_ui(self, dt):
         layout = self.layout
