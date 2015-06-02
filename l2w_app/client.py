@@ -5,7 +5,7 @@ import math
 import time
 import random
 from glob import glob
-from os.path import dirname, abspath, join as pjoin
+from os.path import dirname, abspath
 
 #install_twisted_rector must be called before importing the reactor
 from kivy.support import install_twisted_reactor
@@ -115,6 +115,9 @@ class Soundboard(object):
             for fn in sound_fns:
                 sound = SoundLoader.load(fn)
                 sound.volume = START_VOLUME
+                if instr == 'swells':
+                    # swells sound a bit quiet and have less overlap
+                    sound.volume = min(1.0, sound.volume + 0.2)
                 self.sound_map[instr].append(sound)
             self.playback_map[instr] = [False] * len(self.sound_map[instr])
         self.top_pitch_idx = len(self.sound_map['celesta']) - 1  # TODO
@@ -131,7 +134,6 @@ class Soundboard(object):
         index += fuzz
         # bracket it within reason and turn it into an int
         index = int(round(max(0, min(self.top_pitch_idx, index))))
-        print index
         return index
 
     def play_change(self, size):
@@ -151,6 +153,19 @@ class Soundboard(object):
         if sound.state == 'play':
             sound.seek(0)
         sound.play()
+
+    def play_new_user(self):
+        for retry in range(3):
+            idx = random.randint(0, 2)
+            sound = self.sound_map['swells'][idx]
+            if sound.state == 'play':
+                if retry == 2:
+                    sound.seek(0)
+                else:
+                    continue
+            sound.play()
+            break
+        return
 
 
 class L2WApp(App):
@@ -176,11 +191,8 @@ class L2WApp(App):
 
     def connect_to_server(self):
         log.startLogging(sys.stdout)
-
         factory = L2WFactory(self, "ws://listen.hatnote.com:9000", debug=False)
-
         reactor.connectTCP("listen.hatnote.com", 9000, factory)
-        # reactor.run()
 
     def on_connection(self, connection):
         self.print_message("connected succesfully!")
@@ -190,7 +202,9 @@ class L2WApp(App):
         change_item = ChangeItem(msg, app=self)
         self.changes.append(change_item)
         self.label.text = str(msg).encode('utf8')
-        if not msg['page_title'] == 'Special:Log/newusers':
+        if msg['page_title'] == 'Special:Log/newusers':
+            self.soundboard.play_new_user()
+        else:
             self.soundboard.play_change(msg['change_size'])
 
     def update_ui(self, dt):
