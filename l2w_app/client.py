@@ -32,6 +32,10 @@ START_OPACITY = 1.0
 FADEOUT_SECONDS = 15.0
 START_VOLUME = 0.2
 
+EDIT_COLOR = (1.0, 1.0, 1.0)
+ANON_COLOR = (46 / 255.0, 204 / 255.0, 113 / 255.0)
+BOT_COLOR = (155 / 255.0, 89 / 255.0, 182 / 255.0)
+
 CUR_PATH = dirname(abspath(__file__))
 AUDIO_PATH = CUR_PATH + '/audio/'
 
@@ -81,7 +85,12 @@ class ChangeItem(object):
         self._set_position()
 
     def _set_color(self):
-        self.rgb = (1.0, 1.0, 1.0)
+        if self.metadata.get('is_anon'):
+            self.rgb = ANON_COLOR
+        elif self.metadata.get('is_bot'):
+            self.rgb = BOT_COLOR
+        else:
+            self.rgb = EDIT_COLOR
 
     def _set_radius(self):
         size = self.metadata['change_size']
@@ -152,7 +161,6 @@ class Soundboard(object):
         else:
             sound.seek(0)
         sound.play()
-        print 'target idx:', idx, 'final idx', cur_idx
         return
 
     def play_new_user(self):
