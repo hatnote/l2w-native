@@ -5,9 +5,10 @@ import math
 import time
 import random
 from glob import glob
+from itertools import izip_longest
 from os.path import dirname, abspath
 
-#install_twisted_rector must be called before importing the reactor
+# install_twisted_rector must be called before importing the reactor
 from kivy.support import install_twisted_reactor
 install_twisted_reactor()
 from kivy.app import App
@@ -129,8 +130,6 @@ class Soundboard(object):
         pitch_adjust = math.log(size + log_used) / math.log(log_used)
         pitch = 100.0 - min(max_pitch, pitch_adjust)
         index = math.floor(pitch / 100.0 * (self.top_pitch_idx + 1))
-        fuzz = random.randint(-2, 2)
-        index += fuzz
 
         # bracket it within reason and turn it into an int
         index = int(round(max(0, min(self.top_pitch_idx, index))))
@@ -145,27 +144,68 @@ class Soundboard(object):
         instr = 'celesta'
         if size < 0:
             instr = 'clav'
-        try:
-            sound = self.sound_map[instr][idx]
-        except IndexError:
-            print 'index out of range:', idx
-            return
-        if sound.state == 'play':
+        sound_map = self.sound_map[instr]
+        for cur_idx in iter_probe(len(sound_map), idx, -1, 5):
+            sound = sound_map[cur_idx]
+            if sound.state != 'play':
+                break
+        else:
             sound.seek(0)
         sound.play()
+        print 'target idx:', idx, 'final idx', cur_idx
+        return
 
     def play_new_user(self):
-        for retry in range(3):
-            idx = random.randint(0, 2)
-            sound = self.sound_map['swells'][idx]
-            if sound.state == 'play':
-                if retry == 2:
-                    sound.seek(0)
-                else:
-                    continue
-            sound.play()
-            break
+        idx = random.randint(0, 2)
+        sound_map = self.sound_map['swells']
+        for cur_idx in iter_probe(len(sound_map), idx):
+            sound = sound_map[cur_idx]
+            if sound.state != 'play':
+                break
+        else:
+            sound.seek(0)
+        sound.play()
         return
+
+
+def iter_probe(len_seq, idx, step=1, count=None):
+    """Probe sequence indices up to but not including *len_seq* based on
+    proximity to target index *idx*, according to *step* (1 goes up
+    first, the default, whereas -1 down first), yielding a maximum of
+    *count* indices. Yields only integers >= 0.
+
+    >>> list(iter_nearest(range(10), 3))
+    [3, 4, 2, 5, 1, 6, 0, 7, 8, 9]
+    >>> list(iter_nearest(range(10), 3, count=5))
+    [3, 4, 2, 5, 1]
+    >>> list(iter_nearest(range(10), 3, step=-1))
+    [3, 2, 4, 1, 5, 0, 6, 7, 8, 9]
+    >>> list(iter_nearest(range(10), 3, step=-2))
+    [3, 2, 5, 0, 7, 9]
+    >>> list(iter_nearest(range(10), 3, count=0))
+    []
+    >>> list(iter_nearest(range(0), 3, count=5))
+    []
+    >>> list(iter_nearest(range(10), 100))
+    [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+    """
+    if count is None:
+        count = len_seq
+    abs_step = abs(step)
+    if step > 0:
+        before = xrange(min(idx, len_seq - 1), -1, -abs_step)
+        after = xrange(max(0, idx + 1), len_seq, abs_step)
+        izipper = izip_longest(before, after)
+    else:
+        before = xrange(min(idx - 1, len_seq - 1), -1, -abs_step)
+        after = xrange(max(0, idx), len_seq, abs_step)
+        izipper = izip_longest(after, before)
+    gen = (v for pair in izipper for v in pair if v is not None)
+    i = 0
+    while i < count:
+        yield next(gen)
+        i += 1
+    return
 
 
 class L2WApp(App):
