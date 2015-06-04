@@ -159,6 +159,8 @@ class Soundboard(object):
             if sound.state != 'play':
                 break
         else:
+            # if everything is going off, stick to the original idx
+            sound = sound_map[idx]
             sound.seek(0)
         sound.play()
         return
@@ -171,6 +173,7 @@ class Soundboard(object):
             if sound.state != 'play':
                 break
         else:
+            sound = sound_map[idx]
             sound.seek(0)
         sound.play()
         return
