@@ -16,9 +16,9 @@ from kivy.clock import Clock
 from kivy.uix.label import Label
 from kivy.uix.widget import Widget
 from kivy.uix.carousel import Carousel
-from kivy.uix.listview import ListView
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.gridlayout import GridLayout
+# TODO: switch from carousel to screen manager
+# from kivy.uix.screenmanager import ScreenManager, Screen
 
 from kivy.core.audio import SoundLoader
 from kivy.graphics import Color, Ellipse
@@ -71,11 +71,20 @@ class L2WFactory(WebSocketClientFactory, ReconnectingClientFactory):
         super(L2WFactory, self).__init__(*a, **kw)
 
     def clientConnectionFailed(self, connector, reason):
-        print("Client connection failed. Retrying...")
+        try:
+            error_message = reason.getErrorMessage()
+        except:
+            error_message = repr(reason)
+        print("Client connection failed (%s). Retrying..." % error_message)
         self.retry(connector)
 
     def clientConnectionLost(self, connector, reason):
-        print("Client connection lost. Reconnecting...")
+        try:
+            error_message = reason.getErrorMessage()
+        except:
+            error_message = repr(reason)
+
+        print("Client connection lost (%s). Reconnecting..." % error_message)
         self.retry(connector)
 
 
@@ -230,12 +239,14 @@ class L2WVisualWidget(Widget):
 
 
 class L2WApp(App):
-    """
-    TODO:
+    """TODO:
 
     * console_layout
     * settings_layout
     * about_layout
+
+    Also, the position of shapes on the canvas has screens overlapping
+    at the moment. ScreenManager might fix this?
     """
     def build(self):
         self.changes = []
@@ -263,7 +274,7 @@ class L2WApp(App):
 
     def _init_about_layout(self):
         self.about_layout = BoxLayout(orientation='vertical')
-        self.about_text = 'Listen to Wikipedia is brought to you by Stephen LaPorte and Mahmoud Hashemi'
+        self.about_text = 'Listen to Wikipedia is brought to you\nby Stephen LaPorte and Mahmoud Hashemi'
         about_label = Label(text=self.about_text)
         self.about_layout.add_widget(about_label)
 
