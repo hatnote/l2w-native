@@ -14,6 +14,8 @@ install_twisted_reactor()
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.uix.label import Label
+from kivy.uix.widget import Widget
+from kivy.uix.carousel import Carousel
 from kivy.core.audio import SoundLoader
 from kivy.uix.textinput import TextInput
 from kivy.uix.boxlayout import BoxLayout
@@ -219,16 +221,29 @@ def iter_probe(len_seq, idx, step=1, count=None):
     return
 
 
-class L2WApp(App):
-    connection = None
+class L2WVisualWidget(Widget):
+    # TODO?
+    def __init__(self, **kwargs):
+        super(L2WVisualWidget, self).__init__(**kwargs)
 
+
+class L2WApp(App):
+    """
+    TODO:
+
+    * console_layout
+    * settings_layout
+    * about_layout
+    """
     def build(self):
         self.changes = []
+        log.startLogging(sys.stdout)
         root = self.init_ui()
-        self.connect_to_server()
+        Clock.schedule_once(self.connect_to_server, 0.1)
         return root
 
     def init_ui(self):
+        self.carousel = Carousel(direction='right')
         self.textbox = TextInput(size_hint_y=.1, multiline=False)
         self.label = Label(text='connecting...\n')
         self.layout = BoxLayout(orientation='vertical')
@@ -238,21 +253,18 @@ class L2WApp(App):
         Clock.schedule_interval(self.update_ui, 1.0 / 60.0)
         self.soundboard = Soundboard()
         self.soundboard.load()
-        return self.layout
 
-    def connect_to_server(self):
-        log.startLogging(sys.stdout)
+        self.carousel.add_widget(self.layout)
+        return self.carousel
+
+    def connect_to_server(self, delta):
         factory = L2WFactory(self, "ws://listen.hatnote.com:9000", debug=False)
         reactor.connectTCP("listen.hatnote.com", 9000, factory)
-
-    def on_connection(self, connection):
-        self.print_message("connected succesfully!")
-        self.connection = connection
 
     def handle_message(self, msg):
         change_item = ChangeItem(msg, app=self)
         self.changes.append(change_item)
-        self.label.text = str(msg).encode('utf8')
+        self.label.text = unicode(msg).encode('utf8')
         if msg['page_title'] == 'Special:Log/newusers':
             self.soundboard.play_new_user()
         else:
@@ -268,7 +280,7 @@ class L2WApp(App):
                 fade = ((cur_time - change.create_time) / FADEOUT_SECONDS)
                 opacity = START_OPACITY - fade
                 if opacity <= 0:
-                    print 'removed change', change
+                    # print 'removed change', change
                     continue
                 next_changes.append(change)
                 color = change.rgb + (opacity,)
