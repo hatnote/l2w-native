@@ -281,6 +281,8 @@ class L2WApp(App):
             self.soundboard.play_new_user()
         else:
             self.soundboard.play_change(msg['change_size'])
+        if len(self.console_layout.children) > 15:
+            self.console_layout.remove_widget(self.console_layout.children[-1])
         self.console_layout.add_widget(Label(text=change_item.metadata['page_title']))
 
     def update_ui(self, dt):
