@@ -16,8 +16,11 @@ from kivy.clock import Clock
 from kivy.uix.label import Label
 from kivy.uix.widget import Widget
 from kivy.uix.carousel import Carousel
-from kivy.core.audio import SoundLoader
+from kivy.uix.listview import ListView
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.gridlayout import GridLayout
+
+from kivy.core.audio import SoundLoader
 from kivy.graphics import Color, Ellipse
 
 
@@ -246,20 +249,26 @@ class L2WApp(App):
 
         self.layout = BoxLayout(orientation='vertical')
 
-        self.about_layout = BoxLayout(orientation='vertical')
-        self.about_layout.size_hint = (1.0, 1.0)
-        self.about_text = 'Listen to Wikipedia is brought to you by Stephen LaPorte and Mahmoud Hashemi'
-        about_label = Label(text=self.about_text)
-        about_label.text_size = self.about_layout.size
-        self.about_layout.add_widget(about_label)
-
         Clock.schedule_interval(self.update_ui, 1.0 / 60.0)
         self.soundboard = Soundboard()
         self.soundboard.load()
 
+        self._init_about_layout()
+        self._init_console_layout()
+
         self.carousel.add_widget(self.layout)
+        self.carousel.add_widget(self.console_layout)
         self.carousel.add_widget(self.about_layout)
         return self.carousel
+
+    def _init_about_layout(self):
+        self.about_layout = BoxLayout(orientation='vertical')
+        self.about_text = 'Listen to Wikipedia is brought to you by Stephen LaPorte and Mahmoud Hashemi'
+        about_label = Label(text=self.about_text)
+        self.about_layout.add_widget(about_label)
+
+    def _init_console_layout(self):
+        self.console_layout = BoxLayout(orientation='vertical')
 
     def connect_to_server(self, delta):
         factory = L2WFactory(self, "ws://listen.hatnote.com:9000", debug=False)
@@ -272,6 +281,7 @@ class L2WApp(App):
             self.soundboard.play_new_user()
         else:
             self.soundboard.play_change(msg['change_size'])
+        self.console_layout.add_widget(Label(text=change_item.metadata['page_title']))
 
     def update_ui(self, dt):
         layout = self.layout
@@ -290,6 +300,7 @@ class L2WApp(App):
                 Color(*color)
                 Ellipse(pos=change.pos, size=(change.radius, change.radius))
             self.changes[:] = next_changes
+
         return
 
 
