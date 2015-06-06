@@ -17,7 +17,6 @@ from kivy.uix.label import Label
 from kivy.uix.widget import Widget
 from kivy.uix.carousel import Carousel
 from kivy.core.audio import SoundLoader
-from kivy.uix.textinput import TextInput
 from kivy.uix.boxlayout import BoxLayout
 from kivy.graphics import Color, Ellipse
 
@@ -244,17 +243,22 @@ class L2WApp(App):
 
     def init_ui(self):
         self.carousel = Carousel(direction='right')
-        self.textbox = TextInput(size_hint_y=.1, multiline=False)
-        self.label = Label(text='connecting...\n')
+
         self.layout = BoxLayout(orientation='vertical')
-        self.layout.add_widget(self.label)
-        self.layout.add_widget(self.textbox)
+
+        self.about_layout = BoxLayout(orientation='vertical')
+        self.about_layout.size_hint = (1.0, 1.0)
+        self.about_text = 'Listen to Wikipedia is brought to you by Stephen LaPorte and Mahmoud Hashemi'
+        about_label = Label(text=self.about_text)
+        about_label.text_size = self.about_layout.size
+        self.about_layout.add_widget(about_label)
 
         Clock.schedule_interval(self.update_ui, 1.0 / 60.0)
         self.soundboard = Soundboard()
         self.soundboard.load()
 
         self.carousel.add_widget(self.layout)
+        self.carousel.add_widget(self.about_layout)
         return self.carousel
 
     def connect_to_server(self, delta):
@@ -264,7 +268,6 @@ class L2WApp(App):
     def handle_message(self, msg):
         change_item = ChangeItem(msg, app=self)
         self.changes.append(change_item)
-        self.label.text = unicode(msg).encode('utf8')
         if msg['page_title'] == 'Special:Log/newusers':
             self.soundboard.play_new_user()
         else:
